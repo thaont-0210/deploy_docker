@@ -22,7 +22,7 @@ http.listen(port, function () {
 
 app.use(express.static(__dirname + '/node_modules'));
 
-app.get('/deploy', function(req, res) {
+app.get('/', function(req, res) {
     res.sendFile(path.join(__dirname + '/index.html'));
 });
 
