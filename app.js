@@ -74,9 +74,16 @@ async function getCurrentCommit() {
 async function run() {
     running = true;
 
-    showing('Pull new code from Github');
+    showing('Fetch new code from Github');
     progress = 10;
-    let pulled = await executeZ('cd ' + base_folder + ' && /usr/bin/git pull ' + gitRemote + ' ' + gitBranch);
+    let fetched = await executeZ(`cd  ${base_folder} && /usr/bin/git fetch ${gitRemote} ${gitBranch} && /usr/bin/git checkout ${gitBranch}`);
+    if (!fetched) {
+        return false;
+    }
+
+    showing('Pull new code from Github');
+    progress = 20;
+    let pulled = await executeZ(`cd  ${base_folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
     if (!pulled) {
         return false;
     }
