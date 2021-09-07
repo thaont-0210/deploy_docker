@@ -114,7 +114,7 @@ async function run() {
     if (isDeployClient) {
         showing('Installing npm');
         progress = 90;
-        let installNpm = await executeZ(`cd ${base_folder} && docker exec -it ${dockerToRunNpm} npm install`);
+        let installNpm = await executeZ(`cd ${base_folder} && docker exec -i ${dockerToRunNpm} npm install`);
         if (!installNpm) {
             return false;
         }
