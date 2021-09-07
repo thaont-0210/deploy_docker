@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <meta name="theme-color" content="#212529"/>
+    <link rel='shortcut icon' type='image/svg' href='/favicon.svg' />
     <title>Deploy tool</title>
     <style>
         @import url(https://fonts.googleapis.com/css?family=Press+Start+2P);
@@ -360,16 +361,19 @@
         <div class="container">
             <main class="main-content">
                 <section class="showcase">
-                    <section class="nes-container with-title">
+                    <section class="nes-container with-title" style="padding-right: 0 !important;">
                         <h3 class="title">Current deployed</h3>
-                        <div id="current-commit" class="item" style="white-space: pre-wrap;">
+                        <div id="current-commit" class="item" style="white-space: pre-wrap; height: 400px; overflow: auto;">
+                            <i class="nes-octocat animate"></i>
+                            <i>Loading data...</i>
                         </div>
                     </section>
                 </section>
                 <section class="showcase chose-branch">
                     <section class="nes-container with-title"><h3 class="title">Select repositories want to deploy</h3>
                         <div class="item" id="list-branches-repo">
-
+                            <i class="nes-octocat animate"></i>
+                            <i>Loading data...</i>
                         </div>
                         <dialog class="nes-dialog" id="dialog-default">
                             <form method="dialog">
@@ -447,8 +451,18 @@
                 let lastCommitHtml = '';
                 let selectBranchHtml = '';
                 for (let i = 0; i < data.length; i++) {
-                    lastCommitHtml += `<b class="nes-text is-primary">====== Last commit for ${data[i].name} repository =====</b>\n\n`;
+                    lastCommitHtml += `<b class="nes-text is-primary">====== Last deployed commit for ${data[i].name} repository =====</b>\n\n`;
                     lastCommitHtml += data[i].current_commit + `\n`;
+
+                    let optionValueHtml = '';
+                    let branches = data[i].branches;
+                    for (let j = 0; j < branches.length; j++) {
+                        if (data[i].current_branch === branches[j]) {
+                            optionValueHtml += `<option value="${branches[j]}" selected> Current deployed [${branches[j]}]</option>`;
+                        } else {
+                            optionValueHtml += `<option value="${branches[j]}">${branches[j]}</option>`;
+                        }
+                    }
 
                     selectBranchHtml += `<div class="select-branches">
                         <label>
@@ -457,9 +471,7 @@
                         </label>
                         <div class="nes-select is-success">
                             <select required="" class="selected-branches" name="${data[i].name}" disabled>
-                                <option value="">Select branch</option>
-                                <option value="develop">Develop</option>
-                                <option value="${data[i].current_branch}" selected>${data[i].current_branch}</option>
+                                ${optionValueHtml}
                             </select>
                         </div>
                     </div>`;

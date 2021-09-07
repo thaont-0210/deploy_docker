@@ -6,6 +6,15 @@ const express = require('express');
 const path = require('path');
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const { Octokit } = require("@octokit/rest");
+const authToken = process.env.GITHUB_AUTH_TOKEN;
+var octokit = null;
+
+if (authToken) {
+    octokit = new Octokit({
+        auth: authToken
+    });
+}
 
 const base_folder = process.env.BASE_FOLDER || '~/';
 const port = process.env.NODE_PORT || 8080;
@@ -22,9 +31,11 @@ if (batchDeployNumber > 0) {
             folder: process.env[`BATCH_DEPLOY_${i}_FOLDER`],
             isRunNpm: process.env[`BATCH_DEPLOY_${i}_RUN_NPM`] === 'true' || false,
             dockerToRunNpm: process.env[`BATCH_DEPLOY_${i}_DOCKER_TO_RUN_NPM`] || null,
+            repoOwner: process.env[`BATCH_DEPLOY_${i}_GITHUB_REPO_OWNER`] || null,
             current_branch: '',
             current_commit: '',
             deploy_branch: '',
+            branches: [],
         });
     }
 }
@@ -44,18 +55,35 @@ app.get('/', function(req, res) {
     res.sendFile(path.join(__dirname + '/index.html'));
 });
 
+app.get('/favicon.svg', function(req, res) {
+    res.sendFile(path.join(__dirname + '/favicon.svg'));
+});
+
 io.on('connection', (socket) => {
     if (batchDeploy.length) {
+        let countDone = 0;
         for (let i = 0; i < batchDeploy.length; i++) {
-            getCurrentBranch(batchDeploy[i].folder, batchDeploy[i].name, i).then(a => {
-                //
+            getCurrentBranch(batchDeploy[i].folder, batchDeploy[i].name, i).then(currentBranch => {
+                batchDeploy[i].current_branch = currentBranch;
+                countDone++;
             });
-            getCurrentCommit(batchDeploy[i].folder, batchDeploy[i].name, i).then(a => {
-                //
+            getCurrentCommit(batchDeploy[i].folder, batchDeploy[i].name, i).then(currentCommit => {
+                batchDeploy[i].current_commit = currentCommit;
+                countDone++;
             });
+
+            repositoryBranches(batchDeploy[i].repoOwner, batchDeploy[i].folder).then(branches => {
+                batchDeploy[i].branches = branches;
+                countDone++;
+            })
         }
 
-        io.emit('current info', batchDeploy);
+        let a = setInterval(function () {
+            if (countDone === batchDeploy.length * 3) {
+                clearInterval(a);
+                io.emit('current info', batchDeploy);
+            }
+        }, 500);
     }
 
     socket.on('get branches', function (a) {
@@ -108,14 +136,49 @@ async function deploy(deployBranches) {
     progress = 0;
 }
 
-async function getCurrentCommit(folder = '', name = '', number = 0) {
-    const { stdout, stderr } = await exec(`cd ${base_folder}/${folder} && git log -1`);
-    batchDeploy[number].current_commit = stdout
+async function repositoryBranches(owner = '', repo = '') {
+    let branches = [];
+    if (authToken) {
+        let protect = false;
+        let per_page = 100;
+
+        let recursive = true;
+        let page = 1;
+
+        while (recursive) {
+            let { data } = await octokit.repos.listBranches({
+                owner,
+                repo,
+                protect,
+                per_page,
+                page,
+            });
+
+            let a = data.map(function (b) {
+                return b.name;
+            });
+
+            branches = branches.concat(a);
+            page++;
+            recursive = a.length;
+        }
+    } else {
+        branches = ['develop'];
+    }
+
+    return branches;
 }
 
-async function getCurrentBranch(folder = '', name = '', number = 0) {
+async function getCurrentCommit(folder = '', name = '') {
+    const { stdout, stderr } = await exec(`cd ${base_folder}/${folder} && git log -1`);
+
+    return stdout
+}
+
+async function getCurrentBranch(folder = '', name = '') {
     const { stdout, stderr } = await exec(`cd ${base_folder}/${folder} && git rev-parse --abbrev-ref HEAD`);
-    batchDeploy[number].current_branch = stdout.replace('\n', '')
+
+    return stdout.replace('\n', '')
 }
 
 async function run(name = '', folder = '', isRunNpm = false, dockerToRunNpm = null) {
