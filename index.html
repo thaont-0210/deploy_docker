@@ -367,14 +367,9 @@
                     </section>
                 </section>
                 <section class="showcase chose-branch">
-                    <section class="nes-container with-title"><h3 class="title">Selects</h3>
-                        <div id="selects" class="item">
-                            <label for="success_select">Branch</label>
-                            <div class="nes-select is-success">
-                                <select required="" id="success_select" class="select-branches" disabled>
-                                    <option value="" disabled="" selected="" hidden="">Disabled by Owner</option>
-                                </select>
-                            </div>
+                    <section class="nes-container with-title"><h3 class="title">Select repositories want to deploy</h3>
+                        <div class="item" id="list-branches-repo">
+
                         </div>
                         <dialog class="nes-dialog" id="dialog-default">
                             <form method="dialog">
@@ -448,24 +443,31 @@
                 }
             });
 
-            socket.on('current commit', function (data) {
-                $('#current-commit').empty().text(data);
+            socket.on('current info', function (data) {
+                let lastCommitHtml = '';
+                let selectBranchHtml = '';
+                for (let i = 0; i < data.length; i++) {
+                    lastCommitHtml += `<b class="nes-text is-primary">====== Last commit for ${data[i].name} repository =====</b>\n\n`;
+                    lastCommitHtml += data[i].current_commit + `\n`;
+
+                    selectBranchHtml += `<div class="select-branches">
+                        <label>
+                            <input type="checkbox" class="nes-checkbox">
+                            <span>Enable to deploy <b class="nes-text is-error">${data[i].name}</b></span>
+                        </label>
+                        <div class="nes-select is-success">
+                            <select required="" class="selected-branches" name="${data[i].name}" disabled>
+                                <option value="">Select branch</option>
+                                <option value="develop">Develop</option>
+                                <option value="${data[i].current_branch}" selected>${data[i].current_branch}</option>
+                            </select>
+                        </div>
+                    </div>`;
+                }
+                $('#current-commit').empty().html(lastCommitHtml);
+                $('#list-branches-repo').empty().html(selectBranchHtml);
             });
 
-            // socket.on('current branch', function (data) {
-            //     $('#current-branch .cr-branch').empty().text(data);
-            // });
-
-            // socket.on('branches', function (branches) {
-            //     let selectBranches = '<select>';
-            //     for (let i = 0; i < branches.length; i++) {
-            //         selectBranches += '<option>' + branches[i] + '</option>';
-            //     }
-            //     selectBranches += '</select>';
-            //
-            //     $('.select-branches').html(selectBranches);
-            // });
-            
             socket.on('show progress', function (progress) {
                 let elem = $('.nes-progress');
                 elem.attr('value', progress);
@@ -498,11 +500,26 @@
             });
 
             $('.deploy-btn').on('click', function () {
-                socket.emit('deploy', $('.select-branches').val());
+                let selectedBranches = {};
+                $('.selected-branches').each(function () {
+                    if ($(this).val() !== '' && $(this).attr('disabled') !== 'disabled') {
+                        selectedBranches[$(this).attr('name')] = $(this).val();
+                    }
+                })
+                socket.emit('deploy', selectedBranches);
             });
 
             $('.done-btn').on('click', function () {
                 window.location.reload();
+            });
+
+            $(document).on('click', '.nes-checkbox', function () {
+                let elem = $(this).parents('.select-branches').first().find('select').first();
+                if ($(this).is(':checked')) {
+                    elem.attr('disabled', false);
+                } else {
+                    elem.attr('disabled', true);
+                }
             });
         });
     </script>

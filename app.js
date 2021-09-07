@@ -10,13 +10,29 @@ const io = require('socket.io')(http);
 const base_folder = process.env.BASE_FOLDER || '~/';
 const port = process.env.NODE_PORT || 8080;
 const gitRemote = process.env.GIT_REMOTE || 'origin';
-const gitBranch = process.env.GIT_BRANCH || 'develop';
-const dockerToRunNpm = process.env.DOCKER_TO_RUN_NPM || null;
+var gitBranch = 'develop';
+
+const batchDeployNumber = process.env.BATCH_DEPLOY_NUMBER || 0;
+const batchDeploy = [];
+
+if (batchDeployNumber > 0) {
+    for (let i = 1; i <= batchDeployNumber; i++) {
+        batchDeploy.push({
+            name: process.env[`BATCH_DEPLOY_${i}_NAME`],
+            folder: process.env[`BATCH_DEPLOY_${i}_FOLDER`],
+            isRunNpm: process.env[`BATCH_DEPLOY_${i}_RUN_NPM`] === 'true' || false,
+            dockerToRunNpm: process.env[`BATCH_DEPLOY_${i}_DOCKER_TO_RUN_NPM`] || null,
+            current_branch: '',
+            current_commit: '',
+            deploy_branch: '',
+        });
+    }
+}
 
 var running = false;
 var logs = [];
 var progress = 0;
-var isDeployClient = true;
+var progressNumber = 1;
 
 http.listen(port, function () {
     console.log('Server listening at ' + port);
@@ -29,7 +45,19 @@ app.get('/', function(req, res) {
 });
 
 io.on('connection', (socket) => {
-    getCurrentCommit();
+    if (batchDeploy.length) {
+        for (let i = 0; i < batchDeploy.length; i++) {
+            getCurrentBranch(batchDeploy[i].folder, batchDeploy[i].name, i).then(a => {
+                //
+            });
+            getCurrentCommit(batchDeploy[i].folder, batchDeploy[i].name, i).then(a => {
+                //
+            });
+        }
+
+        io.emit('current info', batchDeploy);
+    }
+
     socket.on('get branches', function (a) {
         if (running) {
             io.emit('status', 'deploying');
@@ -40,20 +68,32 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('deploy', function () {
+    socket.on('deploy', function (deployBranches) {
         if (running) {
             console.log('Dang chay cmnr, deploy cc a?');
             io.emit('status', 'deploying');
         } else {
             io.emit('status', 'deploying');
-            deploy();
-
+            deploy(deployBranches).then(a => {
+                console.log('Deploy xong roi day!');
+            });
         }
     });
 });
 
-async function deploy() {
-    let deployed  = await run();
+async function deploy(deployBranches) {
+    let deployed = false;
+    if (batchDeploy.length && Object.keys(deployBranches).length) {
+        progressNumber = Object.keys(deployBranches).length;
+        for (let i = 0; i < batchDeploy.length; i++) {
+            if (typeof deployBranches[batchDeploy[i].name] !== 'undefined') {
+                gitBranch = deployBranches[batchDeploy[i].name];
+                deployed = await run(batchDeploy[i].name, batchDeploy[i].folder, batchDeploy[i].isRunNpm, batchDeploy[i].dockerToRunNpm)
+            }
+        }
+    }
+
+    running = true;
     if (deployed) {
         progress = 100;
         showing('Deployed successfully!');
@@ -68,60 +108,64 @@ async function deploy() {
     progress = 0;
 }
 
-async function getCurrentCommit() {
-    const { stdout, stderr } = await exec('cd ' + base_folder + ' && git log -1');
-    io.emit('current commit', stdout);
+async function getCurrentCommit(folder = '', name = '', number = 0) {
+    const { stdout, stderr } = await exec(`cd ${base_folder}/${folder} && git log -1`);
+    batchDeploy[number].current_commit = stdout
 }
 
-async function run() {
-    running = true;
+async function getCurrentBranch(folder = '', name = '', number = 0) {
+    const { stdout, stderr } = await exec(`cd ${base_folder}/${folder} && git rev-parse --abbrev-ref HEAD`);
+    batchDeploy[number].current_branch = stdout.replace('\n', '')
+}
 
+async function run(name = '', folder = '', isRunNpm = false, dockerToRunNpm = null) {
+    showing(`===== Deploying for ${name} =====`);
     showing('Fetch new code from Github');
-    progress = 10;
-    let fetched = await executeZ(`cd  ${base_folder} && /usr/bin/git fetch ${gitRemote} ${gitBranch} && /usr/bin/git checkout ${gitBranch}`);
+    progress = 10 / progressNumber;
+    let fetched = await executeZ(`cd  ${base_folder}/${folder} && /usr/bin/git fetch ${gitRemote} ${gitBranch}`);
     if (!fetched) {
         return false;
     }
 
     showing('Checkout to new branch');
-    progress = 20;
-    let checkout = await executeZ(`cd ${base_folder} && /usr/bin/git checkout -f && /usr/bin/git checkout ${gitBranch}`);
+    progress = 20 / progressNumber;
+    let checkout = await executeZ(`cd ${base_folder}/${folder} && /usr/bin/git checkout -f && /usr/bin/git checkout ${gitBranch}`);
     if (!checkout) {
         return false;
     }
 
     showing('Pull new code from Github');
-    progress = 30;
-    let pulled = await executeZ(`cd ${base_folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
+    progress = 30 / progressNumber;
+    let pulled = await executeZ(`cd ${base_folder}/${folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
     if (!pulled) {
         return false;
     }
 
     showing('Shutting down Docker');
-    progress = 40;
-    let dockerDown = await executeZ(`cd ${base_folder} && docker-compose down`);
+    progress = 40 / progressNumber;
+    let dockerDown = await executeZ(`cd ${base_folder}/${folder} && docker-compose down`);
     if (!dockerDown) {
         return false;
     }
 
     showing('Creating new Docker');
-    progress = 80;
-    let dockerUp = await executeZ(`cd ${base_folder} && docker-compose up -d`);
+    progress = 80 / progressNumber;
+    let dockerUp = await executeZ(`cd ${base_folder}/${folder} && docker-compose up -d`);
     if (!dockerUp) {
         return false;
     }
 
-    if (isDeployClient) {
+    if (isRunNpm) {
         showing('Installing npm');
-        progress = 90;
-        let installNpm = await executeZ(`cd ${base_folder} && docker exec -i ${dockerToRunNpm} npm install`);
+        progress = 90 / progressNumber;
+        let installNpm = await executeZ(`cd ${base_folder}/${folder} && docker exec -i ${dockerToRunNpm} npm install`);
         if (!installNpm) {
             return false;
         }
     }
 
-    showing('Done.');
-    progress = 100;
+    showing(`Deployed ${name}`);
+    progress = 100 /progressNumber;
 
     return true;
 }
