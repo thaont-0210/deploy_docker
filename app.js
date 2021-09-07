@@ -11,10 +11,12 @@ const base_folder = process.env.BASE_FOLDER || '~/';
 const port = process.env.NODE_PORT || 8080;
 const gitRemote = process.env.GIT_REMOTE || 'origin';
 const gitBranch = process.env.GIT_BRANCH || 'develop';
+const dockerToRunNpm = process.env.DOCKER_TO_RUN_NPM || null;
 
 var running = false;
 var logs = [];
 var progress = 0;
+var isDeployClient = true;
 
 http.listen(port, function () {
     console.log('Server listening at ' + port);
@@ -81,25 +83,41 @@ async function run() {
         return false;
     }
 
-    showing('Pull new code from Github');
+    showing('Checkout to new branch');
     progress = 20;
-    let pulled = await executeZ(`cd  ${base_folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
+    let checkout = await executeZ(`cd ${base_folder} && /usr/bin/git checkout -f && /usr/bin/git checkout ${gitBranch}`);
+    if (!checkout) {
+        return false;
+    }
+
+    showing('Pull new code from Github');
+    progress = 30;
+    let pulled = await executeZ(`cd ${base_folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
     if (!pulled) {
         return false;
     }
 
     showing('Shutting down Docker');
     progress = 40;
-    let dockerDown = await executeZ('cd ' + base_folder + ' && docker-compose down');
+    let dockerDown = await executeZ(`cd ${base_folder} && docker-compose down`);
     if (!dockerDown) {
         return false;
     }
 
     showing('Creating new Docker');
     progress = 80;
-    let dockerUp = await executeZ('cd ' + base_folder + ' && docker-compose up -d');
+    let dockerUp = await executeZ(`cd ${base_folder} && docker-compose up -d`);
     if (!dockerUp) {
         return false;
+    }
+
+    if (isDeployClient) {
+        showing('Installing npm');
+        progress = 90;
+        let installNpm = await executeZ(`cd ${base_folder} && docker exec -it ${dockerToRunNpm} npm install`);
+        if (!installNpm) {
+            return false;
+        }
     }
 
     showing('Done.');
