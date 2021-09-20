@@ -1,7 +1,10 @@
-# Laravel deployer
-*Note* Deployed Laravel folders will be organized same [Rocketeer](http://rocketeer.autopergamene.eu/) deployed, so this app could be used while using Rocketeer. If this is the first time you setup your project, so you need setup project folders by manual.
+# Multi dockers deployer
+*Note* This improves from [Laravel deployer](https://thaont540.github.io/node_deploy/)
 
-This will be: `/var/www/project_name/github_name/{releases - shared - current}`
+This small tool will help us deploy many of "services" in microservice to single server, which one of services is a docker.
+
+Once time setup, forever using.
+
 ## Manual setup
 ### Install requirement
 ```
@@ -11,8 +14,8 @@ $ sudo apt-get install -y nodejs
 $ npm install pm2 -g
 ```
 ### Setting
-- Git clone from [Master branch](https://github.com/thaont540/node_deploy)
-- Move to folder `node_deploy`
+- Git clone from [Master branch](https://github.com/thaont-0210/deploy_docker/tree/batch_deploy_docker)
+- Move to folder `deploy_docker`
 - Config `.env` file
 ```
 cp .env.example .env
@@ -26,9 +29,33 @@ $ npm install
 ```
 $ pm2 start app.js
 ```
+
+### Config env
+
+```
+NODE_PORT=8080 // ==> port which deploy server will run on
+BASE_FOLDER=/var/www/ // ==> root folder contained all service repositories0
+GIT_REMOTE=origin // ==> default fallback remote
+GIT_BRANCH=develop // ==> default fallback branch
+GITHUB_AUTH_TOKEN= // ==> Github personal access token above
+```
+- For example, we have `/var/www/repo_service_1`, `/var/www/repo_service_2`, ... so, base folder is `/var/www/`
+
+```
+BATCH_DEPLOY_NUMBER=3 // => total number repositories want to deploy
+
+BATCH_DEPLOY_1_NAME=abc // ==> name for service 1
+BATCH_DEPLOY_1_FOLDER=abc-folder // ==> repo_service_1 or repo_service_1 for above example
+BATCH_DEPLOY_1_RUN_NPM=false // ==> run npm install after deploy or not
+BATCH_DEPLOY_1_DOCKER_TO_RUN_NPM= // ==> docker name want to run npm install within
+BATCH_DEPLOY_1_GITHUB_REPO_OWNER= // ==> repo owner
+```
+- For example, if value of `BATCH_DEPLOY_NUMBER` = 3. So, we need have env for `BATCH_DEPLOY_1_*`, `BATCH_DEPLOY_2_*`, `BATCH_DEPLOY_3_*`
+
 ## Auto setup
-![](https://github.com/thaont540/node_deploy/blob/master/bash.png)
-- Download bash file [install.sh](https://github.com/thaont540/node_deploy/blob/master/install.sh) then move it to `/var/www/`
+**Not running well, please use a manual setup.**
+![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/bash.png)
+- Download bash file [install.sh](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/install.sh) then move it to `/var/www/`
 - Change to `deploy` user
 ```
 $ sudo su - deploy
@@ -38,7 +65,7 @@ $ sudo su - deploy
 $ ./install.sh
 ```
 ### Bash file with su permission
-- Download bash file [sudo_install.sh](https://github.com/thaont540/node_deploy/blob/master/sudo_install.sh) then move it to `/var/www/`
+- Download bash file [sudo_install.sh](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/sudo_install.sh) then move it to `/var/www/`
 - Then run with sudo:
 ```
 $ sudo ./sudo_install.sh
@@ -98,9 +125,11 @@ location ^~/nes.css/ {
 ```
 **!! Note !!** If your project used Laravel echo or something else like socketIO, this will get conflict.
 ## How to use
-![](https://github.com/thaont540/node_deploy/blob/master/demo.png)
-- Go to `https://yourdomain.com/deploy` to start deploy
-- Go to `https://yourdomain.com/deploy/edit-env` to edit env file
+![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/demo.png)
+- Go to `https://yourdomain.com/` to start deploy
+- Check on checkbox in section [Select repositories want to deploy] which repo you want to deploy
+- Click [Click here to deploy] to start deploy
+
+*Check:*
 - Check pm2 at [pm2.keymetrics.io](https://pm2.keymetrics.io/)
 - Get Github auth token [here](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line)
-- Deployed Laravel folders will be organized same [Rocketeer](http://rocketeer.autopergamene.eu/) deployed
