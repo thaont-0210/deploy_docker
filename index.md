@@ -56,7 +56,7 @@ BATCH_DEPLOY_1_GITHUB_REPO_OWNER= // ==> repo owner
 
 **Not running well, please use a manual setup.**
 
-![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/bash.png)
+![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/bash.png?raw=true)
 - Download bash file [install.sh](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/install.sh) then move it to `/var/www/`
 - Change to `deploy` user
 ```
@@ -129,7 +129,7 @@ location ^~/nes.css/ {
 **!! Note !!** If your project used Laravel echo or something else like socketIO, this will get conflict.
 
 ## How to use
-![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/demo.png)
+![](https://github.com/thaont-0210/deploy_docker/blob/batch_deploy_docker/demo.png?raw=true)
 - Go to `https://yourdomain.com/` to start deploy
 - Check on checkbox in section [Select repositories want to deploy] which repo you want to deploy
 - Click [Click here to deploy] to start deploy
