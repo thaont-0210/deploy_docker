@@ -466,11 +466,11 @@
 
                     selectBranchHtml += `<div class="select-branches">
                         <label>
-                            <input type="checkbox" class="nes-checkbox">
+                            <input type="checkbox" class="nes-checkbox" checked>
                             <span>Enable to deploy <b class="nes-text is-error">${data[i].name}</b></span>
                         </label>
                         <div class="nes-select is-success">
-                            <select required="" class="selected-branches" name="${data[i].name}" disabled>
+                            <select required="" class="selected-branches" name="${data[i].name}">
                                 ${optionValueHtml}
                             </select>
                         </div>

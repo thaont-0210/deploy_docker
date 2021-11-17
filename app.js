@@ -9,8 +9,6 @@ const io = require('socket.io')(http);
 const { Octokit } = require("@octokit/rest");
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 var octokit = null;
-const { dockerCommand } = require('docker-cli-js');
-
 
 if (authToken) {
     octokit = new Octokit({
@@ -45,7 +43,6 @@ if (batchDeployNumber > 0) {
 var running = false;
 var logs = [];
 var progress = 0;
-var progressNumber = 1;
 
 http.listen(port, function () {
     console.log('Server listening at ' + port);
@@ -114,7 +111,6 @@ io.on('connection', (socket) => {
 async function deploy(deployBranches) {
     let deployed = false;
     if (batchDeploy.length && Object.keys(deployBranches).length) {
-        progressNumber = Object.keys(deployBranches).length;
         for (let i = 0; i < batchDeploy.length; i++) {
             if (typeof deployBranches[batchDeploy[i].name] !== 'undefined') {
                 gitBranch = deployBranches[batchDeploy[i].name];
@@ -184,64 +180,51 @@ async function getCurrentBranch(folder = '', name = '') {
 }
 
 async function run(name = '', folder = '', isRunNpm = false, dockerToRunNpm = null) {
-    showing(`===== Deploying for ${name} =====`);
+    showing(`===== Deploying for react app =====`);
     showing('Fetch new code from Github');
-    progress = 10 / progressNumber;
+    progress = 10;
     let fetched = await executeZ(`cd  ${base_folder}/${folder} && /usr/bin/git fetch ${gitRemote} ${gitBranch}`);
     if (!fetched) {
         return false;
     }
 
     showing('Checkout to new branch');
-    progress = 20 / progressNumber;
+    progress = 20;
     let checkout = await executeZ(`cd ${base_folder}/${folder} && /usr/bin/git checkout -f && /usr/bin/git checkout ${gitBranch}`);
     if (!checkout) {
         return false;
     }
 
     showing('Pull new code from Github');
-    progress = 30 / progressNumber;
+    progress = 30;
     let pulled = await executeZ(`cd ${base_folder}/${folder} && /usr/bin/git pull ${gitRemote} ${gitBranch} && /usr/bin/git submodule update -i`);
     if (!pulled) {
         return false;
     }
 
-    showing('Shutting down Docker');
-    progress = 40 / progressNumber;
-    let dockerDown = await executeZ(`cd ${base_folder}/${folder} && docker-compose down`);
-    if (!dockerDown) {
+    showing('Installing npm');
+    progress = 70;
+    let npmInstall = await executeZ(`cd ${base_folder}/${folder} && npm install`);
+    if (!npmInstall) {
         return false;
     }
 
-    showing('Creating new Docker');
-    progress = 80 / progressNumber;
-    let dockerUp = await executeZ(`cd ${base_folder}/${folder} && docker-compose up -d`);
+    showing('Remove running pm2');
+    progress = 80;
+    let pm2Down = await executeZ(`cd ${base_folder}/${folder} && pm2 del npm`);
+    if (!pm2Down) {
+        return false;
+    }
+
+    showing('Starting new pm2 process');
+    progress = 90;
+    let dockerUp = await executeZ(`cd ${base_folder}/${folder} && pm2 start npm -- start`);
     if (!dockerUp) {
         return false;
     }
 
-    if (isRunNpm) {
-        showing('Installing npm');
-        progress = 90 / progressNumber;
-        // let installNpm = await executeZ(`cd ${base_folder}/${folder} && docker exec -i ${dockerToRunNpm} npm install`);
-        // if (!installNpm) {
-        //     return false;
-        // }
-
-        const options = {
-            machineName: null,
-            currentWorkingDirectory: `${base_folder}/${folder}`,
-            echo: true,
-        };
-
-        let installNpm = await dockerCommand(`exec -i ${dockerToRunNpm} npm install`, options);
-        if (!installNpm) {
-            return false;
-        }
-    }
-
     showing(`Deployed ${name}`);
-    progress = 100 /progressNumber;
+    progress = 100;
 
     return true;
 }
