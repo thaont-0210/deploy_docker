@@ -9,6 +9,8 @@ const io = require('socket.io')(http);
 const { Octokit } = require("@octokit/rest");
 const authToken = process.env.GITHUB_AUTH_TOKEN;
 var octokit = null;
+const { dockerCommand } = require('docker-cli-js');
+
 
 if (authToken) {
     octokit = new Octokit({
@@ -221,7 +223,18 @@ async function run(name = '', folder = '', isRunNpm = false, dockerToRunNpm = nu
     if (isRunNpm) {
         showing('Installing npm');
         progress = 90 / progressNumber;
-        let installNpm = await executeZ(`cd ${base_folder}/${folder} && docker exec -i ${dockerToRunNpm} npm install`);
+        // let installNpm = await executeZ(`cd ${base_folder}/${folder} && docker exec -i ${dockerToRunNpm} npm install`);
+        // if (!installNpm) {
+        //     return false;
+        // }
+
+        const options = {
+            machineName: null,
+            currentWorkingDirectory: `${base_folder}/${folder}`,
+            echo: true,
+        };
+
+        let installNpm = await dockerCommand(`exec -i ${dockerToRunNpm} npm install`, options);
         if (!installNpm) {
             return false;
         }
